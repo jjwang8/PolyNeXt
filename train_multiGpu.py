@@ -100,7 +100,7 @@ def main():
     logging.info('no gpu device available')
     sys.exit(1)
 
-  run = wandb.init(config=args, name=wandb_name, mode=None if is_master or args.wandb_off else "disabled")
+  run = wandb.init(config=args, name=wandb_name, mode=None if is_master and not args.wandb_off else "disabled")
 
   np.random.seed(args.seed)
   cudnn.benchmark = True
