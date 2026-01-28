@@ -150,7 +150,7 @@ def main():
 
   criterion = nn.CrossEntropyLoss(label_smoothing=args.smooth)
   criterion = criterion.cuda()
-  params = utils.split_decay(model, args.weight_decay) if args.bn_no_decay else model.parameters()
+  params = model.parameters()
   if args.opt == "adamW":
     optimizer = torch.optim.AdamW(
         params,
