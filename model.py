@@ -15,7 +15,7 @@ APolyNeXt_T = {
   "expansion_mlp": 2,
   "sigmoid_scale": [0.5] + [0.5 ** i for i in range(1, 6)],
   "paired_scale": True,
-  "Attn": True,
+  "attn": True,
 }
 
 APolyNeXt_S = {
@@ -27,7 +27,7 @@ APolyNeXt_S = {
   "expansion_conv": 1,
   "expansion_mlp": 2,
   "sigmoid_scale": [float(-i/2) for i in range(8)],
-  "Attn": True,
+  "attn": True,
 }
 
 APolyNeXt_B = {
@@ -39,7 +39,7 @@ APolyNeXt_B = {
   "expansion_conv": 1,
   "expansion_mlp": 2,
   "sigmoid_scale": [float(-i/2) for i in range(8)],
-  "Attn": True,
+  "attn": True,
 }
 
 
@@ -52,7 +52,7 @@ APolyNeXt_L = {
   "expansion_conv": 1,
   "expansion_mlp": 2,
   "sigmoid_scale": [float(-i/2 - 0.5) for i in range(8)],
-  "Attn": True,
+  "attn": True,
 }
 
 # Convs =============================
@@ -188,7 +188,7 @@ class NetworkPolyImageNet(nn.Module):
         self.reductions.append(self.create_downsize(C_prev, C_curr, config["downsize_type"][1]))
         stage += 1
         size //= 2
-      if config["attn"] and stage >= 2:
+      if config.get("attn", False) and stage >= 2:
         cell = Atten_Cell_Imagenet(config, C_curr, config["nodes"][i], stage, size, self.drop_path_prob[i])
       else:
         cell = Poly_Cell_Imagenet(config, C_curr, config["nodes"][i], stage, size, self.drop_path_prob[i])
