@@ -180,3 +180,16 @@ class DropPath(torch.nn.Module):
 
 def drop_paths(rate, depth):
    return [x.tolist() for x in torch.linspace(0, rate, depth)]
+
+def create_exp_dir(path, scripts_to_save=None):
+  if not os.path.exists("./logs"):
+    os.mkdir("./logs")
+  if not os.path.exists(path):
+    os.mkdir(path)
+  print('Experiment dir : {}'.format(path))
+
+  if scripts_to_save is not None:
+    os.mkdir(os.path.join(path, 'scripts'))
+    for script in scripts_to_save:
+      dst_file = os.path.join(path, 'scripts', os.path.basename(script))
+      shutil.copyfile(script, dst_file)
