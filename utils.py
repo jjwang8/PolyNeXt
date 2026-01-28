@@ -65,6 +65,8 @@ def transforms_imagenet(args):
         ])
     if args.auto_aug:
         train_transforms.transforms.insert(2, rand_augment_transform("rand-m9-mstd0.5-inc1", {}))
+    if args.rand_interp:
+       train_transforms.transforms[0] = RandomResizedCropAndInterpolation(224)
     return train_transforms, valid_transforms
 
 def _data_transforms_cifar10(args, size = 32):

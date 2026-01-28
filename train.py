@@ -43,6 +43,7 @@ parser.add_argument('--debug', default=False, action='store_true', help='keep on
 parser.add_argument('--smooth', type=float, default=0, help='amount of label smoothing')
 parser.add_argument('--dropout', type=float, default=0, help='dropout prob')
 parser.add_argument('--auto_aug', default=False, action='store_true', help='use AutoAugment')
+parser.add_argument('--rand_interp', default=False, action='store_true', help='use random interp for training')
 parser.add_argument('--warmup_length', type=int, default=0, help='epochs to do warm up for')
 parser.add_argument('--cutmix', default=False, action='store_true', help='use cut mix and mix up')
 parser.add_argument('--lr_min', type=float, default=0, help='min learning rate')
