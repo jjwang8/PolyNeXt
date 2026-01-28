@@ -124,13 +124,13 @@ class Poly_Cell_Imagenet(nn.Module):
       C_inner = int(C*expansion_conv)
       if stage == 0:
         temp = [nn.Conv2d(C, C_inner, kernel_size=1, padding=0, bias=False),
-                nn.Conv2d(C_inner, C_inner, kernel_size=3, stride=1, padding=2, dilation=2, groups=C, bias=False),
-                nn.Conv2d(C_inner, C_inner, kernel_size=3, stride=1, padding=1, groups=C, bias=False)]
+                nn.Conv2d(C_inner, C_inner, kernel_size=3, stride=1, padding=2, dilation=2, groups=C_inner, bias=False),
+                nn.Conv2d(C_inner, C_inner, kernel_size=3, stride=1, padding=1, groups=C_inner, bias=False)]
       else:
         temp = [nn.Conv2d(C, C_inner, kernel_size=1, padding=0, bias=False),
-                nn.Conv2d(C_inner, C_inner, kernel_size=5, stride=1, padding=4, dilation=2, groups=C, bias=False),
-                nn.Conv2d(C_inner, C_inner, kernel_size=3, stride=1, padding=1, groups=C, bias=False)]
-      final = nn.Sequential(nn.Conv2d(C_inner, C_inner, kernel_size=3, stride=1, padding=1, groups=C, bias=False),
+                nn.Conv2d(C_inner, C_inner, kernel_size=5, stride=1, padding=4, dilation=2, groups=C_inner, bias=False),
+                nn.Conv2d(C_inner, C_inner, kernel_size=3, stride=1, padding=1, groups=C_inner, bias=False)]
+      final = nn.Sequential(nn.Conv2d(C_inner, C_inner, kernel_size=3, stride=1, padding=1, groups=C_inner, bias=False),
                             nn.Conv2d(C_inner, C, kernel_size=1, padding=0, bias=False))
       POLY_INIT_FUNC(final[0].weight)
       POLY_INIT_FUNC(final[1].weight)
