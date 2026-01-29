@@ -67,14 +67,14 @@ Pre-trained weights will be released upon paper acceptance.
 
 | Model | Params (M) | FLOPs (G) | Top-1 (%) | Checkpoint |
 |-------|------------|-----------|-----------|------------|
-| CPolyNeXt-T | 6.4 | 1.2 | 80.2 | Coming Soon |
+| CPolyNeXt-T | 6.4 | 1.23 | 80.2 | Coming Soon |
 | CPolyNeXt-S | 26 | 4.8 | 83.9 | Coming Soon |
 | CPolyNeXt-B | 40 | 8.5 | 84.7 | Coming Soon |
 | CPolyNeXt-L | 57 | 12.6 | 84.9 | Coming Soon |
-| APolyNeXt-T | 6.5 | 1.2 | 80.9 | Coming Soon |
-| APolyNeXt-S | 26 | 4.9 | 84.3 | Coming Soon |
-| APolyNeXt-B | 41 | 8.7 | 85.0 | Coming Soon |
-| APolyNeXt-L | 57 | 12.6 | 85.2 | Coming Soon |
+| APolyNeXt-T | 6.5 | 1.3 | 80.9 | Coming Soon |
+| APolyNeXt-S | 26 | 5.3 | 84.3 | Coming Soon |
+| APolyNeXt-B | 41 | 9.3 | 85.0 | Coming Soon |
+| APolyNeXt-L | 57 | 13.3 | 85.2 | Coming Soon |
 
 ---
 
