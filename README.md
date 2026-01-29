@@ -18,21 +18,6 @@ We introduce three polynomial modules:
 
 Combined with lightweight stabilization techniques (Sigmoid-Scale and multi-input skip connections) and a depth-over-width design philosophy, our models match or exceed activation-based counterparts across model scales.
 
-### Key Results
-
-| Model | Params (M) | FLOPs (G) | Top-1 (%) |
-|-------|------------|-----------|-----------|
-| CPolyNeXt-T | 6.4 | 1.2 | 80.2 |
-| APolyNeXt-T | 6.5 | 1.2 | 80.9 |
-| CPolyNeXt-S | 26 | 4.8 | 83.9 |
-| APolyNeXt-S | 26 | 4.9 | 84.3 |
-| CPolyNeXt-B | 40 | 8.5 | 84.7 |
-| APolyNeXt-B | 41 | 8.7 | 85.0 |
-| CPolyNeXt-L | 57 | 12.6 | 84.9 |
-| APolyNeXt-L | 57 | 12.6 | 85.2 |
-
-Our strongest model, **APolyNeXt-S**, reaches **84.3% top-1 accuracy** on ImageNet-1K at 26M parameters, compared to 83.6% for CAFormer-S18. Compared to prior polynomial networks (MONet, DTTN), we improve by approximately 2 percentage points at 40% of the computational cost.
-
 ---
 
 ## Installation
@@ -67,7 +52,7 @@ Pre-trained weights will be released upon paper acceptance.
 
 | Model | Params (M) | FLOPs (G) | Top-1 (%) | Checkpoint |
 |-------|------------|-----------|-----------|------------|
-| CPolyNeXt-T | 6.4 | 1.23 | 80.2 | Coming Soon |
+| CPolyNeXt-T | 6.4 | 1.3 | 80.2 | Coming Soon |
 | CPolyNeXt-S | 26 | 4.8 | 83.9 | Coming Soon |
 | CPolyNeXt-B | 40 | 8.5 | 84.7 | Coming Soon |
 | CPolyNeXt-L | 57 | 12.6 | 84.9 | Coming Soon |
@@ -163,7 +148,7 @@ bash scripts/APolyNeXt_T.sh
 
 | Model | Config | Init Channels | Layers | Optimizer | Learning Rate | Stochastic Depth |
 |-------|--------|---------------|--------|-----------|---------------|------------------|
-| CPolyNeXt-T | `CPolyNeXt_T` | 48 | 12 | AdamW | 0.004 | 0.03 |
+| CPolyNeXt-T | `CPolyNeXt_T` | 48 | 12 | AdamW | 0.004 | 0.00 |
 | CPolyNeXt-S | `CPolyNeXt_S` | 72 | 17 | AdamW | 0.004 | 0.20 |
 | CPolyNeXt-B | `CPolyNeXt_B` | 84 | 17 | AdamW | 0.004 | 0.30 |
 | CPolyNeXt-L | `CPolyNeXt_L` | 96 | 24 | AdamW | 0.004 | 0.50 |
