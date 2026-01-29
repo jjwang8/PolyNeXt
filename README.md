@@ -1,6 +1,6 @@
 # PolyNeXt
 
-**Activation-Free Vision Backbones: Polynomial Alternatives for Spatial and Channel Mixing**
+**Activation-Free Backbones for Image Recognition: Polynomial Alternatives for Spatial and Channel Mixing**
 
 [Paper (Coming Soon)]() | [Models (Coming Soon)]()
 
