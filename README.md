@@ -1,6 +1,6 @@
 # PolyNeXt
 
-**Activation-Free Backbones for Image Recognition: Polynomial Alternatives for Spatial and Channel Mixing**
+**Activation-Free Backbones for Image Recognition: Polynomial Alternatives within MetaFormer-Style Vision Models**
 
 [Paper (Coming Soon)]() | [Models (Coming Soon)]()
 
@@ -17,6 +17,21 @@ We introduce three polynomial modules:
 - **PolyAttn**: Replaces the exponential in softmax attention with a polynomial kernel
 
 Combined with lightweight stabilization techniques (Sigmoid-Scale and multi-input skip connections) and a depth-over-width design philosophy, our models match or exceed activation-based counterparts across model scales.
+
+### Key Results
+
+| Model | Params (M) | FLOPs (G) | Top-1 (%) |
+|-------|------------|-----------|-----------|
+| CPolyNeXt-T | 6.4 | 1.2 | 80.2 |
+| APolyNeXt-T | 6.5 | 1.3 | 80.9 |
+| CPolyNeXt-S | 26 | 4.8 | 83.9 |
+| APolyNeXt-S | 26 | 5.3 | 84.3 |
+| CPolyNeXt-B | 40 | 8.5 | 84.7 |
+| APolyNeXt-B | 41 | 9.3 | 84.9 |
+| CPolyNeXt-L | 57 | 12.6 | 84.9 |
+| APolyNeXt-L | 57 | 13.3 | 85.2 |
+
+Our largest model, **APolyNeXt-L**, reaches **85.2% top-1 accuracy** on ImageNet-1K, matching CAFormer-M36 at comparable parameter count. At smaller scale, **APolyNeXt-S** attains **84.3% top-1** at 26M parameters, surpassing CAFormer-S18 (83.6%). Compared to prior polynomial networks (MONet, DTTN), our models improve by 2-3 percentage points at substantially lower computational cost.
 
 ---
 
@@ -42,23 +57,35 @@ conda activate venv
 pip install -r requirements.txt
 ```
 
+### Experiment Tracking (Weights & Biases)
+
+The training scripts log metrics to [Weights & Biases](https://wandb.ai/) by
+default. Provide your API key in a `.env` file in the repository root:
+
+```bash
+echo "WANDB_API_KEY=your_key_here" > .env
+```
+
+To train without W&B logging, pass the `--wandb_off` flag instead. Do not
+commit your `.env` file, it is excluded by `.gitignore`.
+
 ---
 
 ## Model Zoo
 
-Pre-trained weights will be released upon paper acceptance.
+Pre-trained weights will be released soon.
 
 ### ImageNet-1K Pretrained Models
 
 | Model | Params (M) | FLOPs (G) | Top-1 (%) | Checkpoint |
 |-------|------------|-----------|-----------|------------|
-| CPolyNeXt-T | 6.4 | 1.3 | 80.2 | Coming Soon |
+| CPolyNeXt-T | 6.4 | 1.2 | 80.2 | Coming Soon |
 | CPolyNeXt-S | 26 | 4.8 | 83.9 | Coming Soon |
 | CPolyNeXt-B | 40 | 8.5 | 84.7 | Coming Soon |
 | CPolyNeXt-L | 57 | 12.6 | 84.9 | Coming Soon |
 | APolyNeXt-T | 6.5 | 1.3 | 80.9 | Coming Soon |
 | APolyNeXt-S | 26 | 5.3 | 84.3 | Coming Soon |
-| APolyNeXt-B | 41 | 9.3 | 85.0 | Coming Soon |
+| APolyNeXt-B | 41 | 9.3 | 84.9 | Coming Soon |
 | APolyNeXt-L | 57 | 13.3 | 85.2 | Coming Soon |
 
 ---
@@ -95,6 +122,7 @@ python train.py \
     --init_channels 48 \
     --layers 12 \
     --batch_size 128 \
+    --accumulate 8 \ 
     --learning_rate 0.004 \
     --lr_min 0.00001 \
     --epochs 300 \
@@ -150,11 +178,11 @@ bash scripts/APolyNeXt_T.sh
 |-------|--------|---------------|--------|-----------|---------------|------------------|
 | CPolyNeXt-T | `CPolyNeXt_T` | 48 | 12 | AdamW | 0.004 | 0.00 |
 | CPolyNeXt-S | `CPolyNeXt_S` | 72 | 17 | AdamW | 0.004 | 0.20 |
-| CPolyNeXt-B | `CPolyNeXt_B` | 84 | 17 | AdamW | 0.004 | 0.30 |
+| CPolyNeXt-B | `CPolyNeXt_B` | 84 | 21 | AdamW | 0.004 | 0.30 |
 | CPolyNeXt-L | `CPolyNeXt_L` | 96 | 24 | AdamW | 0.004 | 0.50 |
 | APolyNeXt-T | `APolyNeXt_T` | 48 | 12 | LAMB | 0.002 | 0.03 |
 | APolyNeXt-S | `APolyNeXt_S` | 72 | 17 | LAMB | 0.002 | 0.25 |
-| APolyNeXt-B | `APolyNeXt_B` | 84 | 17 | LAMB | 0.002 | 0.40 |
+| APolyNeXt-B | `APolyNeXt_B` | 84 | 21 | LAMB | 0.002 | 0.40 |
 | APolyNeXt-L | `APolyNeXt_L` | 96 | 24 | LAMB | 0.002 | 0.55 |
 
 All models are trained for 300 epochs with batch size 1024 (effective, with gradient accumulation), cosine learning rate schedule, label smoothing (0.1), CutMix, MixUp, and RandAugment.
@@ -238,7 +266,17 @@ PolyNeXt/
 
 If you find this work useful, please cite our paper:
 
-TODO
+```bibtex
+@inproceedings{wang2026polynext,
+  title     = {Activation-Free Backbones for Image Recognition: Polynomial
+               Alternatives within MetaFormer-Style Vision Models},
+  author    = {Wang, Jeffrey and Gregory, Jonathan and Chrysos, Grigorios G.},
+  booktitle = {Proceedings of the 43rd International Conference on Machine Learning (ICML)},
+  year      = {2026}
+}
+```
+
+> The BibTeX entry will be updated with the official PMLR proceedings reference once published.
 
 ---
 

@@ -1,0 +1,29 @@
+# Environment / secrets
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.ipynb_checkpoints/
+
+# Weights & Biases
+wandb/
+
+# Checkpoints and logs
+*.pt
+*.pth
+*.ckpt
+*.log
+checkpoints/
+runs/
+
+# Datasets / downloaded files
+imagenet_class_index.json
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
