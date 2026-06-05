@@ -11,8 +11,8 @@ APolyNeXt_T = {
   "downsize_type": ["sep3x3", "sep3x3"],
   "channels": {2: 2, 4: 4, 10: 6},
   "node_norm": "layernorm",
-  "expansion_conv": 1,
-  "expansion_mlp": 2,
+  "expansion_conv": [1, 1, 0.75, 0.75],
+  "expansion_mlp": [2, 2, 1.75, 1.75],
   "sigmoid_scale": [0.5] + [0.5 ** i for i in range(1, 6)],
   "paired_scale": True,
   "attn": True,
@@ -24,8 +24,8 @@ APolyNeXt_S = {
   "downsize_type": ["sep3x3", "full3x3"],
   "channels": {3: 2, 6: 4, 14: 6},
   "node_norm": "layernorm",
-  "expansion_conv": 1,
-  "expansion_mlp": 2,
+  "expansion_conv": [1, 1, 0.75, 0.75],
+  "expansion_mlp": [2, 2, 1.75, 1.75],
   "sigmoid_scale": [float(-i/2) for i in range(8)],
   "attn": True,
 }
@@ -36,8 +36,8 @@ APolyNeXt_B = {
   "downsize_type": ["sep3x3", "full3x3"],
   "channels": {3: 2, 8: 4, 18: 6},
   "node_norm": "layernorm",
-  "expansion_conv": 1,
-  "expansion_mlp": 2,
+  "expansion_conv": [1, 1, 0.75, 0.75],
+  "expansion_mlp": [2, 2, 1.75, 1.75],
   "sigmoid_scale": [float(-i/2) for i in range(8)],
   "attn": True,
 }
@@ -49,8 +49,8 @@ APolyNeXt_L = {
   "downsize_type": ["sep3x3", "full3x3"],
   "channels": {3: 2, 9: 4, 21: 6},
   "node_norm": "layernorm",
-  "expansion_conv": 1,
-  "expansion_mlp": 2,
+  "expansion_conv": [1, 1, 0.75, 0.75],
+  "expansion_mlp": [2, 2, 1.75, 1.75],
   "sigmoid_scale": [float(-i/2 - 0.5) for i in range(8)],
   "attn": True,
 }
@@ -63,8 +63,8 @@ CPolyNeXt_T = {
   "downsize_type": ["sep3x3", "sep3x3"],
   "channels": {2: 2, 4: 4, 10: 6},
   "node_norm": "layernorm",
-  "expansion_conv": 1,
-  "expansion_mlp": 2,
+  "expansion_conv": [1, 1, 0.75, 0.75],
+  "expansion_mlp": [2, 2, 1.75, 1.75],
   "sigmoid_scale": [0.5] + [0.5 ** i for i in range(1, 6)],
   "paired_scale": True,
 }
@@ -75,8 +75,8 @@ CPolyNeXt_S = {
   "downsize_type": ["sep3x3", "full3x3"],
   "channels": {3: 2, 6: 4, 14: 6},
   "node_norm": "layernorm",
-  "expansion_conv": 1,
-  "expansion_mlp": 2,
+  "expansion_conv": [1, 1, 0.75, 0.75],
+  "expansion_mlp": [2, 2, 1.75, 1.75],
   "sigmoid_scale": [float(-i/2) for i in range(8)],
 }
 
@@ -86,8 +86,8 @@ CPolyNeXt_B = {
   "downsize_type": ["sep3x3", "full3x3"],
   "channels": {3: 2, 8: 4, 18: 6},
   "node_norm": "layernorm",
-  "expansion_conv": 1,
-  "expansion_mlp": 2,
+  "expansion_conv": [1, 1, 0.75, 0.75],
+  "expansion_mlp": [2, 2, 1.75, 1.75],
   "sigmoid_scale": [float(-i/2) for i in range(8)],
 }
 
@@ -98,8 +98,8 @@ CPolyNeXt_L = {
   "downsize_type": ["sep3x3", "full3x3"],
   "channels": {3: 2, 9: 4, 21: 6},
   "node_norm": "layernorm",
-  "expansion_conv": 1,
-  "expansion_mlp": 2,
+  "expansion_conv": [1, 1, 0.75, 0.75],
+  "expansion_mlp": [2, 2, 1.75, 1.75],
   "sigmoid_scale": [float(-i/2 - 0.5) for i in range(8)],
 }
 
@@ -109,15 +109,13 @@ class Poly_Cell_Imagenet(nn.Module):
     super(Poly_Cell_Imagenet, self).__init__()
     self.nodes = nodes
     self.C = C
-    expansion_conv = config["expansion_conv"] if stage <= 1 else 0.75
-    expansion_mlp = config["expansion_mlp"] if stage <= 1 else 1.75
+    expansion_conv = config["expansion_conv"][stage]
+    expansion_mlp = config["expansion_mlp"][stage]
     
-    print(C)
-    print(drop_path)
 
     self.preprocess0 = ScalePerChannel(C)
     self.preprocess1 = ScalePerChannel(C)
-    self.postprocess = LayerNorm2d(C, bias=False)
+    self.postprocess = make_norm(config.get("norm", "ln"), C, bias=False)
 
     self.ops = nn.ModuleList()
     for index in range(self.nodes//2):
@@ -135,7 +133,7 @@ class Poly_Cell_Imagenet(nn.Module):
       POLY_INIT_FUNC(final[0].weight)
       POLY_INIT_FUNC(final[1].weight)
       if config["node_norm"] == "layernorm":
-        final.extend([LayerNorm2d(C, bias=False), DropPath(drop_path)])
+        final.extend([make_norm(config.get("norm", "ln"), C, bias=False), DropPath(drop_path)])
       for i in temp[:3]:
         POLY_INIT_FUNC(i.weight)
       temp.append(final)
@@ -144,7 +142,7 @@ class Poly_Cell_Imagenet(nn.Module):
       temp.extend([nn.Conv2d(C, self.C_inner2, kernel_size=1, padding=0, bias=False), nn.Conv2d(self.C_inner2//2, C, kernel_size=1, padding=0, bias=False)])
       POLY_INIT_FUNC(temp[-1].weight)
       POLY_INIT_FUNC(temp[-2].weight)
-      temp[-1] = nn.Sequential(LayerNorm2d(self.C_inner2//2, bias=False), temp[-1], DropPath(drop_path))
+      temp[-1] = nn.Sequential(make_norm(config.get("norm", "ln"), self.C_inner2//2, bias=False), temp[-1], DropPath(drop_path))
       self.ops.extend(temp)
     
     scale_vals = torch.tensor(config["sigmoid_scale"])
@@ -195,7 +193,7 @@ class NetworkPolyImageNet(nn.Module):
       self.cells.append(cell)
       C_prev = C_curr
 
-    self.norm = LayerNorm2d(C_prev, bias=False)
+    self.norm = make_norm(config.get("norm", "ln"), C_prev, bias=False)
     self.proj = nn.Conv2d(C_prev, C_prev*4, 1, 1, 0, bias=False)
     self.head = nn.Sequential(  
       nn.AdaptiveAvgPool2d(1),
@@ -248,26 +246,23 @@ class Atten_Cell_Imagenet(nn.Module):
     super(Atten_Cell_Imagenet, self).__init__()
     self.nodes = nodes
     self.C = C
-    expansion_conv = config["expansion_conv"]
-    expansion_mlp = 1.75
+    expansion_mlp = config["expansion_mlp"][stage]
     
-    print(C)
-    print(drop_path)
 
     self.preprocess0 = ScalePerChannel(C)
     self.preprocess1 = ScalePerChannel(C)
-    self.postprocess = LayerNorm2d(C, bias=False)
+    self.postprocess = make_norm(config.get("norm", "ln"), C, bias=False)
 
     self.ops = nn.ModuleList()
     for index in range(self.nodes//2):
-      temp = [nn.Sequential(LayerNorm2d(C, bias=False), Attention(C, head_dim=32, num_heads=math.ceil(C/64)), DropPath(drop_path))]
+      temp = [nn.Sequential(make_norm(config.get("norm", "ln"), C, bias=False), Attention(C, head_dim=32, num_heads=math.ceil(C/64), norm=config.get("norm", "ln")), DropPath(drop_path))]
 
 
       self.C_inner2 = int(C*expansion_mlp)
       temp.extend([nn.Conv2d(C, self.C_inner2, kernel_size=1, padding=0, bias=False), nn.Conv2d(self.C_inner2//2, C, kernel_size=1, padding=0, bias=False)])
       POLY_INIT_FUNC(temp[-1].weight)
       POLY_INIT_FUNC(temp[-2].weight)
-      temp[-1] = nn.Sequential(LayerNorm2d(self.C_inner2//2, bias=False), temp[-1], DropPath(drop_path))
+      temp[-1] = nn.Sequential(make_norm(config.get("norm", "ln"), self.C_inner2//2, bias=False), temp[-1], DropPath(drop_path))
       self.ops.extend(temp)
     
     scale_vals = torch.tensor(config["sigmoid_scale"])
@@ -297,8 +292,8 @@ LowRes = {
   "downsize_type": ["sep3x3", "sep3x3"],
   "channels": {2: 2, 5: 4},
   "node_norm": "layernorm",
-  "expansion_conv": 1,
-  "expansion_mlp": 2,
+  "expansion_conv": [1, 1, 1],
+  "expansion_mlp": [2, 2, 2],
   "sigmoid_scale": [0.5] + [0.5 ** i for i in range(1, 6)]
 }
 
@@ -326,7 +321,7 @@ class NetworkPoly(nn.Module):
       self.cells.append(cell)
       C_prev = C_curr
 
-    self.norm = LayerNorm2d(C_prev, bias=False)
+    self.norm = make_norm(config.get("norm", "ln"), C_prev, bias=False)
     self.proj = nn.Conv2d(C_prev, C_prev*4, 1, 1, 0, bias=False)
     self.head = nn.Sequential(  
       nn.AdaptiveAvgPool2d(1),
@@ -373,3 +368,20 @@ class NetworkPoly(nn.Module):
     l, r = self.proj(self.norm(s1)).split(s1.shape[1]*2, 1)
     logits = self.head(l+l*r)
     return logits
+
+def materialize_lazy_params(model, input_size=224):
+  """Run one dummy forward so lazily-created norm parameters/buffers exist.
+
+  The fully-polynomial ("bn") variants use ChannelBatchNorm and
+  RunningRowSumNorm_Attn, which create their per-(H,W) / per-(H,T) parameters
+  and running buffers on the first forward pass. load_state_dict therefore
+  needs those tensors to already exist (and be the right shape). Call this on a
+  freshly built model before loading a checkpoint. It is a harmless no-op for
+  the default LayerNorm models.
+  """
+  was_training = model.training
+  device = next(model.parameters()).device
+  model.eval()
+  with torch.no_grad():
+    model(torch.zeros(1, 3, input_size, input_size, device=device))
+  model.train(was_training)

@@ -1,0 +1,2 @@
+# Effective batch size = nproc_per_node (2) * batch_size (256) * accumulate (2) = 1024
+torchrun --nproc_per_node=2 --rdzv_endpoint=localhost:29123 train_multiGpu.py --save CPolyNeXt_S_BN --config CPolyNeXt_S --norm bn --init_channels 72 --report_freq 20 --layers 17 --learning_rate 0.001 --lr_min 0.00001 --auto_aug --drop_path_prob 0.2 --dropout 0.4 --rampout 300 --cutmix --opt adamW --set imagenet1000 --workers 32 --weight_decay 0.05 --epochs 300 --smooth 0.1 --accumulate 2 --batch_size 256 --data /path/to/imagenet1k

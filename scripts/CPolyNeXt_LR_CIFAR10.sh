@@ -1,0 +1,1 @@
+python train_lowres.py --config LowRes --set cifar10 --save CPolyNeXt_LR_CIFAR10 --data ./data --init_channels 72 --layers 8 --report_freq 20 --learning_rate 0.001 --auto_aug --drop_path_prob 0.0 --cutmix --opt adamW --weight_decay 0.05 --epochs 300 --smooth 0.1 --workers 8 --batch_size 96

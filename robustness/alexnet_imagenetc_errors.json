@@ -1,0 +1,17 @@
+{
+  "gaussian_noise": 88.6,
+  "shot_noise": 89.4,
+  "impulse_noise": 92.3,
+  "defocus_blur": 82.0,
+  "glass_blur": 82.6,
+  "motion_blur": 78.6,
+  "zoom_blur": 79.8,
+  "snow": 86.7,
+  "frost": 82.7,
+  "fog": 81.9,
+  "brightness": 56.5,
+  "contrast": 85.3,
+  "elastic_transform": 64.6,
+  "pixelate": 71.8,
+  "jpeg_compression": 60.7
+}

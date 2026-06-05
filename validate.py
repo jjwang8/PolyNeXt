@@ -14,21 +14,11 @@ from model import *
 from utils import transforms_imagenet
 
 def build_model(args, num_classes):
-    if args.config != "LowRes":
-        model = NetworkPolyImageNet(args.init_channels, num_classes,
-                                    args.layers, eval(args.config),
-                                    args.dropout)
-    else:
-        model = NetworkPoly(args.init_channels, num_classes, args.layers, eval(args.config), args.dropout, args.drop_path_prob)
-    return model
+    cfg = dict(eval(args.config))
+    cfg["norm"] = args.norm
+    return NetworkPolyImageNet(args.init_channels, num_classes,
+                               args.layers, cfg, args.dropout)
 
-def load_checkpoint(path):
-    ckpt = torch.load(path, map_location="cpu")
-    if isinstance(ckpt, dict) and "state_dict" in ckpt:
-        return ckpt["state_dict"]
-    else:
-        return ckpt
-    
 def smart_load(model, ckpt_path, strict=False):
     ckpt = torch.load(ckpt_path)
 
@@ -51,7 +41,7 @@ def smart_load(model, ckpt_path, strict=False):
 def main():
     parser = argparse.ArgumentParser("ImageNet-1k validation")
     parser.add_argument('--data',        type=str, required=True,
-                        help='root dir of ImageNet1k (should contain “val/”)')
+                        help='root dir of ImageNet1k (should contain "val/")')
     parser.add_argument('--val-dir',     type=str, default=None,
                         help='[optional] explicit val folder if different from data/val')
     parser.add_argument('--checkpoint',  type=str, required=True,
@@ -62,8 +52,16 @@ def main():
     parser.add_argument('--init_channels', type=int, default=48)
     parser.add_argument('--layers',      type=int, default=12)
     parser.add_argument('--config',      type=str, default='CPolyNeXt_T')
+    parser.add_argument('--norm',        type=str, default='ln', choices=['ln', 'bn'],
+                        help="normalization: 'ln' (default models) or 'bn' (fully-polynomial variants)")
+    parser.add_argument('--input_size',  type=int, default=224,
+                        help='input resolution; used to materialize lazy bn-variant params before loading')
     parser.add_argument('--poly',        action='store_true',
                         help='use poly model for ImageNet')
+    parser.add_argument('--auto_aug',    action='store_true',
+                        help='(train-time augmentation; unused in validation)')
+    parser.add_argument('--rand_interp', action='store_true',
+                        help='(train-time augmentation; unused in validation)')
     parser.add_argument('--dropout',     type=float, default=0.0)
     parser.add_argument('--wnid-json',   type=str,
                         default='imagenet_class_index.json',
@@ -75,7 +73,6 @@ def main():
 
     # 1) prepare data loader
     val_folder = args.val_dir if args.val_dir else os.path.join(args.data, 'val')
-    args.auto_aug = True
     _, valid_tf = transforms_imagenet(args)
     val_ds = datasets.ImageFolder(val_folder, transform=valid_tf)
     val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False,
@@ -86,7 +83,7 @@ def main():
 
     # 2) load human-readable labels
     if not os.path.exists(args.wnid_json):
-        print(f"downloading {args.wnid_json} …")
+        print(f"downloading {args.wnid_json} ...")
         url = "https://s3.amazonaws.com/deep-learning-models/image-models/imagenet_class_index.json"
         urllib.request.urlretrieve(url, args.wnid_json)
     with open(args.wnid_json) as f:
@@ -99,6 +96,9 @@ def main():
 
     # 3) build and load model
     model = build_model(args, num_classes)
+    # bn-variant norms create their parameters lazily on first forward, so a
+    # dummy pass is required before load_state_dict (no-op for ln models).
+    materialize_lazy_params(model, input_size=args.input_size)
     smart_load(model, args.checkpoint)
     model.to(device).eval()
     print(">=> model and checkpoint loaded")

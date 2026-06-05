@@ -1,3 +1,9 @@
+"""Training script for the low-resolution CPolyNeXt-LR models.
+
+Trains from scratch at native resolution on CIFAR-10, SVHN, or Tiny-ImageNet
+(see Appendix "Smaller-Scale Evaluation"). Single-GPU; the small datasets train
+quickly. For ImageNet-1K training use train_multiGpu.py instead.
+"""
 import os
 import sys
 import time
@@ -13,7 +19,7 @@ import torchvision.datasets as dset
 import torch.backends.cudnn as cudnn
 from torch.optim.lr_scheduler import LambdaLR, CosineAnnealingLR, SequentialLR, LinearLR
 from torchvision.transforms import v2
-    
+
 from torch.autograd import Variable
 from model import *
 from lamb import Lamb
@@ -22,17 +28,17 @@ import operations
 
 from ptflops import get_model_complexity_info
 
-parser = argparse.ArgumentParser("cifar")
-parser.add_argument('--data', type=str, default='', help='location of the data corpus')
-parser.add_argument('--set', type=str, default='cifar10', help='location of the data corpus')
-parser.add_argument('--batch_size', type=int, default=128, help='batch size')
-parser.add_argument('--learning_rate', type=float, default=4e-3, help='init learning rate')
-parser.add_argument('--weight_decay', type=float, default=0.01, help='weight decay')
+parser = argparse.ArgumentParser("lowres")
+parser.add_argument('--data', type=str, default='./data', help='dataset root (CIFAR-10/SVHN download here; Tiny-ImageNet folder)')
+parser.add_argument('--set', type=str, default='cifar10', choices=['cifar10', 'svhn', 'tiny_imagenet'], help='which low-resolution dataset')
+parser.add_argument('--batch_size', type=int, default=96, help='batch size')
+parser.add_argument('--learning_rate', type=float, default=1e-3, help='init learning rate')
+parser.add_argument('--weight_decay', type=float, default=0.05, help='weight decay')
 parser.add_argument('--report_freq', type=float, default=20, help='report frequency')
 parser.add_argument('--gpu', type=int, default=0, help='gpu device id')
 parser.add_argument('--epochs', type=int, default=300, help='num of training epochs')
-parser.add_argument('--init_channels', type=int, default=48, help='num of init channels')
-parser.add_argument('--layers', type=int, default=12, help='total number of layers')
+parser.add_argument('--init_channels', type=int, default=72, help='num of init channels')
+parser.add_argument('--layers', type=int, default=8, help='total number of layers')
 parser.add_argument('--drop_path_prob', type=float, default=0.0, help='drop path probability')
 parser.add_argument('--save', type=str, default='EXP', help='experiment name')
 parser.add_argument('--seed', type=int, default=0, help='random seed')
@@ -42,17 +48,16 @@ parser.add_argument('--grad_clip', type=float, default=5, help='gradient clippin
 parser.add_argument('--debug', default=False, action='store_true', help='keep only 5 steps per epoch')
 parser.add_argument('--smooth', type=float, default=0, help='amount of label smoothing')
 parser.add_argument('--dropout', type=float, default=0, help='dropout prob')
-parser.add_argument('--auto_aug', default=False, action='store_true', help='use AutoAugment')
-parser.add_argument('--rand_interp', default=False, action='store_true', help='use random interp for training')
+parser.add_argument('--auto_aug', default=False, action='store_true', help='use RandAugment')
 parser.add_argument('--warmup_length', type=int, default=0, help='epochs to do warm up for')
 parser.add_argument('--cutmix', default=False, action='store_true', help='use cut mix and mix up')
 parser.add_argument('--lr_min', type=float, default=0, help='min learning rate')
-parser.add_argument('--opt', type=str, default="SGD", help='optimizer to use')
+parser.add_argument('--opt', type=str, default="adamW", help='optimizer to use')
 parser.add_argument('--eps', type=float, default=1e-8, help='opt eps')
 parser.add_argument('--sch', type=str, default="cos", help='lr schedular to use')
 parser.add_argument('--accumulate', type=int, default=1, help='gradient accumulation')
-parser.add_argument('--config', type=str, default="CPolyNeXt_T", help='config to use for model')
-parser.add_argument('--workers', type=int, default=1, help='number of workers to load dataset')
+parser.add_argument('--config', type=str, default="LowRes", help='config to use for model')
+parser.add_argument('--workers', type=int, default=8, help='number of workers to load dataset')
 parser.add_argument('--resume', type=str, default='', help='path to latest checkpoint')
 parser.add_argument('--chk_path', type=str, default="", help='path to store checkpoints')
 parser.add_argument('--rampout', type=int, default=-1, help='ramp dropout')
@@ -81,12 +86,11 @@ if __name__ == '__main__':
   logging.getLogger().addHandler(fh)
 
 args.save = './'
-CIFAR_CLASSES = 10
 
-if args.set=='cifar100' or args.set == "imagenet100":
-    CIFAR_CLASSES = 100
-elif args.set == "imagenet1000":
-    CIFAR_CLASSES = 1000
+# Dataset-specific settings (hardcoded per --set rather than passed as flags).
+NUM_CLASSES = {"cifar10": 10, "svhn": 10, "tiny_imagenet": 200}[args.set]
+INPUT_SIZE  = {"cifar10": 32, "svhn": 32, "tiny_imagenet": 64}[args.set]
+HFLIP       = (args.set != "svhn")   # SVHN house-number digits are not flip-invariant
 
 def main():
   if not torch.cuda.is_available():
@@ -106,16 +110,15 @@ def main():
   logging.info('gpu device = %d' % args.gpu)
   logging.info("args = %s", args)
 
-  if args.config != "LowRes":
-    model = NetworkPolyImageNet(args.init_channels, CIFAR_CLASSES, args.layers, eval(args.config), args.dropout, args.drop_path_prob)
-  else:
-    model = NetworkPoly(args.init_channels, CIFAR_CLASSES, args.layers, eval(args.config), args.dropout, args.drop_path_prob)
+  model_cfg = dict(eval(args.config))
+  model = NetworkPoly(args.init_channels, NUM_CLASSES, args.layers, model_cfg, args.dropout, args.drop_path_prob)
   model = model.cuda(args.gpu)
 
-  img_size = 32 
-  if args.set == "imagenet100" or args.set == "imagenet1000":
-    img_size = 224
-  flops, params = get_model_complexity_info(model, (3, img_size, img_size), as_strings=False, backend='aten', print_per_layer_stat=False, verbose=False)
+  img_size = INPUT_SIZE
+  # ptflops backend: 'pytorch' is more accurate for conv models, 'aten' for
+  # attention models (per ptflops docs). Selected automatically from the config.
+  flops_backend = "aten" if model_cfg.get("attn", False) else "pytorch"
+  flops, params = get_model_complexity_info(model, (3, img_size, img_size), as_strings=False, backend=flops_backend, print_per_layer_stat=False, verbose=False)
   run_str = time.strftime('%Y%m%d-%H%M')
   logging.info("param size traditional = %fMB", utils.count_parameters_in_MB(model))
   logging.info('flops = %fM', flops / 1e6)
@@ -125,7 +128,7 @@ def main():
     model.compile()
 
   table = wandb.Table(columns=["flops", "params", "config", "path"])
-  table.add_data(str(flops / 1e6), str(params / 1e6), str(eval(args.config)), 
+  table.add_data(str(flops / 1e6), str(params / 1e6), str(eval(args.config)),
                  os.path.join(args.chk_path, args.save, f'{wandb_name+"_" + run_str}-weights.pt'))
   wandb.log({"Model stats": table})
 
@@ -148,38 +151,31 @@ def main():
         decoupled_decay=True,
         eps=args.eps
         )
-  if args.set == "imagenet100":
-    train_transform, valid_transform = utils.transforms_imagenet(args)
-  elif args.set == "imagenet1000":
-    train_transform, valid_transform = utils.transforms_imagenet(args)
-  else:
-    train_transform, valid_transform = utils._data_transforms_cifar10(args, img_size)
+
+  train_transform, valid_transform = utils.transforms_lowres(
+      INPUT_SIZE, hflip=HFLIP, auto_aug=args.auto_aug)
   print(train_transform)
-  if args.set=='cifar100' or (args.set in ["imagenet100", "imagenet1000"] and args.debug):
-      train_data = dset.CIFAR100(root=args.data, train=True, download=True, transform=train_transform)
-      valid_data = dset.CIFAR100(root=args.data, train=False, download=True, transform=valid_transform)
-  elif args.set == "imagenet100":
-      root_dir = ""
-      train_data = dset.ImageFolder(root_dir+"/train", transform=train_transform)
-      valid_data = dset.ImageFolder(root_dir+"/val", transform=valid_transform)
-  elif args.set == "imagenet1000":
-      root_dir = ""
-      train_data = dset.ImageFolder(args.data+root_dir+"/train", transform=train_transform)
-      valid_data = dset.ImageFolder(args.data+root_dir+"/val", transform=valid_transform)
-  else:
+
+  if args.set == "cifar10":
       train_data = dset.CIFAR10(root=args.data, train=True, download=True, transform=train_transform)
       valid_data = dset.CIFAR10(root=args.data, train=False, download=True, transform=valid_transform)
+  elif args.set == "svhn":
+      train_data = dset.SVHN(root=args.data, split="train", download=True, transform=train_transform)
+      valid_data = dset.SVHN(root=args.data, split="test", download=True, transform=valid_transform)
+  elif args.set == "tiny_imagenet":
+      train_data = dset.ImageFolder(os.path.join(args.data, "train"), transform=train_transform)
+      valid_data = dset.ImageFolder(os.path.join(args.data, "val"), transform=valid_transform)
+  else:
+      raise ValueError(f"Unknown --set: {args.set}")
+
   print("Train dataset:")
   print(f"  Total images: {len(train_data)}")
-  print(f"  Classes used: {len(set(train_data.targets))}")
+  print(f"  Classes: {NUM_CLASSES}")
+
   collate_fn = None
   if args.cutmix:
-    if args.set == "imagenet1000":
-        cutmix = v2.CutMix(num_classes=CIFAR_CLASSES)
-        mixup = v2.MixUp(num_classes=CIFAR_CLASSES, alpha=0.8)
-    else:
-        cutmix = v2.CutMix(num_classes=CIFAR_CLASSES)
-        mixup = v2.MixUp(num_classes=CIFAR_CLASSES)
+    cutmix = v2.CutMix(num_classes=NUM_CLASSES)
+    mixup = v2.MixUp(num_classes=NUM_CLASSES)
     cm_func = v2.RandomChoice([cutmix, mixup])
     collate_fn = lambda x: cm_func(*torch.utils.data.default_collate(x))
 
@@ -243,7 +239,7 @@ def main():
         best_acc = valid_acc
     if valid_acc5 > best_acc5:
         best_acc5 = valid_acc5
-    
+
     if not args.debug:
       utils.save_checkpoint({
           'epoch': epoch + 1,
@@ -253,7 +249,7 @@ def main():
           'optimizer': optimizer.state_dict(),
           'scheduler': scheduler.state_dict()
       }, valid_acc > best_acc, os.path.join(args.chk_path, args.save), wandb_name)
-    
+
     logging.info('epoch %d lr %e', epoch, scheduler.get_last_lr()[0])
     logging.info('valid_acc %f, best_acc %f', valid_acc, best_acc)
     scheduler.step()
@@ -323,5 +319,4 @@ def infer(valid_queue, model, criterion):
     return top1.avg, top5.avg, objs.avg
 
 if __name__ == '__main__':
-  main() 
-
+  main()

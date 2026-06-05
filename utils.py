@@ -69,22 +69,32 @@ def transforms_imagenet(args):
        train_transforms.transforms[0] = RandomResizedCropAndInterpolation(224)
     return train_transforms, valid_transforms
 
-def _data_transforms_cifar10(args, size = 32):
-    normalize = transforms.Normalize(mean=[0.49139968, 0.48215827, 0.44653124], std=[0.24703233, 0.24348505, 0.26158768])
-    train_transforms = transforms.Compose([
-            RandomResizedCropAndInterpolation(size),
-            # transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            normalize,
-            RandomErasing(p=0.25, value='random')
-        ])
+# Normalization statistics (CIFAR-10 values, used for all low-resolution datasets).
+LOWRES_MEAN = [0.49139968, 0.48215827, 0.44653124]
+LOWRES_STD = [0.24703233, 0.24348505, 0.26158768]
+
+def transforms_lowres(size, hflip=True, auto_aug=False):
+    """Augmentation for the low-resolution datasets (CIFAR-10, SVHN, Tiny-ImageNet).
+
+    Training is at native resolution, so size is 32 (CIFAR-10, SVHN) or 64
+    (Tiny-ImageNet). Horizontal flip is disabled for SVHN, whose house-number
+    digits are not flip-invariant.
+    """
+    normalize = transforms.Normalize(mean=LOWRES_MEAN, std=LOWRES_STD)
+
+    train_list = [RandomResizedCropAndInterpolation(size)]
+    if hflip:
+        train_list.append(transforms.RandomHorizontalFlip())
+    train_list += [transforms.ToTensor(), normalize, RandomErasing(p=0.25, value='random')]
+    if auto_aug:
+        train_list.insert(1, rand_augment_transform("rand-m9-mstd0.5-inc1", {}))
+
+    train_transforms = transforms.Compose(train_list)
     valid_transforms = transforms.Compose([
-            transforms.Resize(size, interpolation=InterpolationMode.BICUBIC),
-            transforms.ToTensor(),
-            normalize,
-        ])
-    if args.auto_aug:
-        train_transforms.transforms.insert(1, rand_augment_transform("rand-m9-mstd0.5-inc1", {}))
+        transforms.Resize(size, interpolation=InterpolationMode.BICUBIC),
+        transforms.ToTensor(),
+        normalize,
+    ])
     return train_transforms, valid_transforms
 
 def count_parameters_in_MB(model):
@@ -109,8 +119,8 @@ def atomic_torch_save(state, filename):
         raise
 
 def save_checkpoint(state, is_best, save, name):
-    """Saves model + optimizer + scheduler state to ‘*_checkpoint.pth.tar’ in save/,
-       and if is_best is True, also copies it to ‘model_best.pth.tar’."""
+    """Saves model + optimizer + scheduler state to '*_checkpoint.pth.tar' in save/,
+       and if is_best is True, also copies it to 'model_best.pth.tar'."""
     filename = os.path.join(save, name + "_checkpoint.pth.tar")
 
     try:

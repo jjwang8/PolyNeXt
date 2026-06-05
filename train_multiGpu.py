@@ -24,9 +24,9 @@ import operations
 from ptflops import get_model_complexity_info
 from torch.optim.swa_utils import AveragedModel, get_ema_multi_avg_fn
 
-parser = argparse.ArgumentParser("cifar")
+parser = argparse.ArgumentParser("imagenet")
 parser.add_argument('--data', type=str, default='', help='location of the data corpus')
-parser.add_argument('--set', type=str, default='cifar10', help='location of the data corpus')
+parser.add_argument('--set', type=str, default='imagenet1000', choices=['imagenet1000', 'imagenet100'], help='ImageNet variant')
 parser.add_argument('--batch_size', type=int, default=128, help='batch size')
 parser.add_argument('--learning_rate', type=float, default=4e-3, help='init learning rate')
 parser.add_argument('--weight_decay', type=float, default=0.01, help='weight decay')
@@ -54,6 +54,7 @@ parser.add_argument('--eps', type=float, default=1e-8, help='opt eps')
 parser.add_argument('--sch', type=str, default="cos", help='lr schedular to use')
 parser.add_argument('--accumulate', type=int, default=1, help='gradient accumulation')
 parser.add_argument('--config', type=str, default="CPolyNeXt_T", help='config to use for model')
+parser.add_argument('--norm', type=str, default='ln', choices=['ln', 'bn'], help="normalization: 'ln' (default) or 'bn' for fully-polynomial variants")
 parser.add_argument('--workers', type=int, default=1, help='number of workers to load dataset')
 parser.add_argument('--resume', type=str, default='', help='path to latest checkpoint')
 parser.add_argument('--chk_path', type=str, default="", help='path to store checkpoints')
@@ -88,12 +89,7 @@ if is_master:
     logging.getLogger().addHandler(fh)
 
 args.save = './'
-CIFAR_CLASSES = 10
-
-if args.set=='cifar100' or args.set == "imagenet100":
-    CIFAR_CLASSES = 100
-elif args.set == "imagenet1000":
-   CIFAR_CLASSES = 1000
+NUM_CLASSES = 1000 if args.set == "imagenet1000" else 100
 
 def main():
   if not torch.cuda.is_available():
@@ -121,16 +117,16 @@ def main():
   num_gpus = torch.cuda.device_count()
   print(f"GPUs: {num_gpus}")
 
-  if args.config != "LowRes":
-    model = NetworkPolyImageNet(args.init_channels, CIFAR_CLASSES, args.layers, eval(args.config), args.dropout, args.drop_path_prob)
-  else:
-    model = NetworkPoly(args.init_channels, CIFAR_CLASSES, args.layers, eval(args.config), args.dropout, args.drop_path_prob)
+  model_cfg = dict(eval(args.config))
+  model_cfg["norm"] = args.norm
+  model = NetworkPolyImageNet(args.init_channels, NUM_CLASSES, args.layers, model_cfg, args.dropout, args.drop_path_prob)
 
   model = model.cuda(args.local_rank)
-  img_size = 32 
-  if args.set == "imagenet100" or args.set == "imagenet1000":
-    img_size = 224
-  flops, params = get_model_complexity_info(model, (3, img_size, img_size), as_strings=False, backend='aten', print_per_layer_stat=False, verbose=False)
+  img_size = 224
+  # ptflops backend: 'pytorch' is more accurate for conv models, 'aten' for
+  # attention models (per ptflops docs). Selected automatically from the config.
+  flops_backend = "aten" if model_cfg.get("attn", False) else "pytorch"
+  flops, params = get_model_complexity_info(model, (3, img_size, img_size), as_strings=False, backend=flops_backend, print_per_layer_stat=False, verbose=False)
   model.compile()
   num_params = sum(p.numel() for p in model.parameters())
   print(f"[rank {args.local_rank}] num_params BEFORE DDP = {num_params}")
@@ -168,32 +164,17 @@ def main():
         decoupled_decay=True,
         eps=args.eps
         )
-  if args.set == "imagenet100" or args.set == "imagenet1000":
-    train_transform, valid_transform = utils.transforms_imagenet(args)
-  else:
-    train_transform, valid_transform = utils._data_transforms_cifar10(args)
+  train_transform, valid_transform = utils.transforms_imagenet(args)
   print(train_transform)
-  if args.set=='cifar100' or (args.set == "imagenet100" and args.debug):
-      train_data = dset.CIFAR100(root=args.data, train=True, download=True, transform=train_transform)
-      valid_data = dset.CIFAR100(root=args.data, train=False, download=True, transform=valid_transform)
-  elif args.set == "imagenet100":
-      root_dir = ""
-      train_data = dset.ImageFolder(args.data+root_dir+"/train", transform=train_transform)
-      valid_data = dset.ImageFolder(args.data+root_dir+"/val", transform=valid_transform)
-  elif args.set == "imagenet1000":
-      root_dir = ""
-      train_data = dset.ImageFolder(args.data+root_dir+"/train", transform=train_transform)
-      valid_data = dset.ImageFolder(args.data+root_dir+"/val", transform=valid_transform)
-  else:
-      train_data = dset.CIFAR10(root=args.data, train=True, download=True, transform=train_transform)
-      valid_data = dset.CIFAR10(root=args.data, train=False, download=True, transform=valid_transform)
+  train_data = dset.ImageFolder(os.path.join(args.data, "train"), transform=train_transform)
+  valid_data = dset.ImageFolder(os.path.join(args.data, "val"), transform=valid_transform)
   print("Train dataset:")
   print(f"  Total images: {len(train_data)}")
-  print(f"  Classes used: {len(set(train_data.targets))}")
+  print(f"  Classes: {NUM_CLASSES}")
   collate_fn = None
   if args.cutmix:
-    cutmix = v2.CutMix(num_classes=CIFAR_CLASSES)
-    mixup = v2.MixUp(num_classes=CIFAR_CLASSES, alpha=0.8)
+    cutmix = v2.CutMix(num_classes=NUM_CLASSES)
+    mixup = v2.MixUp(num_classes=NUM_CLASSES, alpha=0.8)
 
     cm_func = v2.RandomChoice([cutmix, mixup])
     collate_fn = lambda x: cm_func(*torch.utils.data.default_collate(x))
